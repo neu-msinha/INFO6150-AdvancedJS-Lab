@@ -1,8 +1,8 @@
-
 "use strict";
 
 const express = require("express");
 const app = express();
+const ChatUser = require("./ChatUser");
 
 // Enable WebSocket support
 const wsExpress = require("express-ws")(app);
@@ -17,16 +17,31 @@ app.get("/:roomName", function (req, res, next) {
 
 // WebSocket route
 app.ws("/chat/:roomName", function (ws, req, next) {
-  console.log(`New WebSocket connection to room: ${req.params.roomName}`);
-  
-  ws.on("message", function (data) {
-    console.log("Received:", data);
-    ws.send("Echo: " + data);
-  });
+  try {
+    const user = new ChatUser(
+      ws.send.bind(ws), // fn to call to message this user
+      req.params.roomName // name of room for user
+    );
 
-  ws.on("close", function () {
-    console.log("WebSocket connection closed");
-  });
+    // register handlers for message-received, connection-closed
+    ws.on("message", function (data) {
+      try {
+        user.handleMessage(data);
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    ws.on("close", function () {
+      try {
+        user.handleClose();
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  } catch (err) {
+    console.error(err);
+  }
 });
 
 module.exports = app;
