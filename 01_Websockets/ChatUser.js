@@ -1,12 +1,14 @@
 "use strict";
 
+const Room = require("./Room");
+
 class ChatUser {
   constructor(send, roomName) {
     this._send = send; // "send" function for this user
-    this.roomName = roomName; // room name
+    this.room = Room.get(roomName); // room user will be in
     this.name = null; // becomes the username of the visitor
 
-    console.log(`created chat in room ${this.roomName}`);
+    console.log(`created chat in ${this.room.name}`);
   }
 
   /** Send msgs to this client using underlying connection-send-function. */
@@ -18,21 +20,41 @@ class ChatUser {
     }
   }
 
+  /** Handle joining: add to room members, announce join */
+  handleJoin(name) {
+    this.name = name;
+    this.room.join(this);
+    this.room.broadcast({
+      type: "note",
+      text: `${this.name} joined "${this.room.name}".`,
+    });
+  }
+
+  /** Handle a chat: broadcast to room */
+  handleChat(text) {
+    this.room.broadcast({
+      name: this.name,
+      type: "chat",
+      text: text,
+    });
+  }
+
   /** Handle messages from client */
   handleMessage(jsonData) {
     let msg = JSON.parse(jsonData);
-    console.log("Received message:", msg);
-    
-    // For now, just echo back
-    this.send(JSON.stringify({
-      type: "echo",
-      text: `You said: ${jsonData}`
-    }));
+
+    if (msg.type === "join") this.handleJoin(msg.name);
+    else if (msg.type === "chat") this.handleChat(msg.text);
+    else throw new Error(`bad message: ${msg.type}`);
   }
 
-  /** Connection was closed */
+  /** Connection was closed: leave room, announce exit to others */
   handleClose() {
-    console.log(`User disconnected from ${this.roomName}`);
+    this.room.leave(this);
+    this.room.broadcast({
+      type: "note",
+      text: `${this.name} left ${this.room.name}.`,
+    });
   }
 }
 
