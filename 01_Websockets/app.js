@@ -1,3 +1,4 @@
+
 "use strict";
 
 const express = require("express");
@@ -6,9 +7,12 @@ const app = express();
 // Enable WebSocket support
 const wsExpress = require("express-ws")(app);
 
-// Basic HTTP route
-app.get("/", function (req, res) {
-  res.send("Server is running!");
+// Serve static files
+app.use(express.static("static/"));
+
+// Serve chat HTML for any room
+app.get("/:roomName", function (req, res, next) {
+  res.sendFile(`${__dirname}/chat.html`);
 });
 
 // WebSocket route
